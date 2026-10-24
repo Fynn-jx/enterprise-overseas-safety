@@ -101,7 +101,30 @@ test('cache reuses a model and invalidates changed parameters or spatial inputs'
   assert.notEqual(getCostDistanceImpact(event, [...rails], countries), first);
 });
 
-test('real GeoJSON loads once and all five scenarios produce non-circular footprints', async () => {
+function nearestRailKm(location, railLines) {
+  const kmPerDegree = Math.PI * 6371 / 180;
+  const kx = kmPerDegree * Math.cos(location[1] * Math.PI / 180);
+  let best = Infinity;
+  for (const line of railLines) for (let i = 1; i < line.coordinates.length; i++) {
+    const ax = (line.coordinates[i - 1][0] - location[0]) * kx;
+    const ay = (line.coordinates[i - 1][1] - location[1]) * kmPerDegree;
+    const bx = (line.coordinates[i][0] - location[0]) * kx;
+    const by = (line.coordinates[i][1] - location[1]) * kmPerDegree;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+    const distance = Math.hypot(ax + dx * t, ay + dy * t);
+    if (distance < best) best = distance;
+  }
+  return best;
+}
+
+const offCorridorExpectations = {
+  'tazara-copperbelt-006': { minOffsetKm: 45, hits: [['New Kapiri Mposhi', 0.25]] },
+  'tazara-darport-007': { minOffsetKm: 45, hits: [['Dar es Salaam', 0.25], ['Mzenga', 0.5]] },
+};
+
+test('real GeoJSON loads once and all scenarios produce non-circular footprints', async () => {
   const originalFetch = globalThis.fetch;
   let requests = 0;
   globalThis.fetch = async url => {
@@ -132,8 +155,23 @@ test('real GeoJSON loads once and all five scenarios produce non-circular footpr
           assert.equal(booleanPointInPolygon(point(station.coordinates), contour), model.impactAt(station.coordinates) >= contour.properties.threshold);
         }
       }
+      const offCorridor = offCorridorExpectations[scenario.id];
+      if (offCorridor) {
+        const offsetKm = nearestRailKm(scenario.location, data.railLines);
+        assert.ok(offsetKm >= offCorridor.minOffsetKm, `${scenario.id} is only ${offsetKm.toFixed(1)} km from the drawn rail`);
+        for (const [name, minImpact] of offCorridor.hits) {
+          const station = data.stations.find(item => item.name === name);
+          assert.ok(station, name);
+          const impact = model.impactAt(station.coordinates);
+          assert.ok(impact >= minImpact, `${scenario.id} impact at ${name} is ${impact}`);
+          const band = model.contours.features.find(feature => feature.properties.threshold === (minImpact >= 0.5 ? 0.5 : 0.25));
+          assert.ok(booleanPointInPolygon(point(station.coordinates), band), `${scenario.id} ${name} is outside the ${band.properties.threshold} contour`);
+        }
+        console.log(`${scenario.id}: ${offsetKm.toFixed(1)} km off the drawn rail`);
+      }
       console.log(`${scenario.id}: ${model.areaKm2} km², ${(performance.now() - start).toFixed(0)} ms`);
     }
+    assert.equal(tazaraRiskEvents.filter(scenario => offCorridorExpectations[scenario.id]).length, 2);
     const regional = getCostDistanceImpact({ ...tazaraRiskEvents[0], id: 'regional-benchmark', scale: 'regional', halfDistanceKm: 200 }, data.railLines, countries);
     assert.ok(regional.areaKm2 > 0);
     assert.ok(regional.contours.features[0].geometry.coordinates.length > 0);

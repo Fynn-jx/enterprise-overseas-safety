@@ -1,5 +1,6 @@
 // Scenario inputs, not a live event feed or measured forecasts.
-// Locations use station coordinates from the project's TAZARA GeoJSON files.
+// The first five locations use station coordinates from the project's TAZARA GeoJSON.
+// The last two sit off the drawn line; half-distance is set so the footprint still reaches it.
 import { resolveImpactParameters, type ImpactScale } from '../utils/costDistanceImpact';
 
 type Risk = "high" | "medium" | "low";
@@ -154,6 +155,56 @@ export const tazaraRiskEvents: TazaraRiskEvent[] = [
     responseMeasures: [
       { category: "劳资沟通与作业核实", priority: "immediate", measures: ["核实停工范围、人员诉求及可用装卸能力。", "协调现场沟通并保障人员与堆场安全。"] },
       { category: "集运与出口排期", priority: "short-term", measures: ["按堆场容量调整矿区来货和车皮配置。", "同步更新铁路发运及港口接续计划。"] },
+    ],
+  }),
+  // Kitwe is about 137 km north of the drawn line. halfDistanceKm 100 keeps New Kapiri Mposhi inside the 0.25 contour.
+  defineEvent({
+    id: "tazara-copperbelt-006", title: "铜带基特韦矿石公路集运中断",
+    country: "赞比亚", location: [28.2132, -12.8024], locationLabel: "基特韦矿区（铁路北侧）",
+    type: "供应链矿产", severity: "high", popularity: 90, date: "2026-02-12", affectedPopulation: 10800,
+    scale: "corridor", halfDistanceKm: 100,
+    description: "若基特韦、谦比希一带矿石短驳与南下公路中断，事件发生在坦赞铁路外侧。影响可通过空间扩散和供应链接驳，波及 New Kapiri Mposhi 装运及关联资产。",
+    affectedSegment: "New Kapiri Mposhi 始发装运段（北侧公路衔接）", serviceImpact: "铁路外侧矿石来货减少，始发装车与东向交班延后",
+    conclusion: "事件发生在铁路外侧，影响通过空间扩散和供应链接驳波及坦赞铁路及关联资产。足迹只表示情景暴露，矿区公路与车站装运需要分别核实。",
+    impactPath: steps([
+      ["矿区公路中断", "事件发生在铁路外侧的基特韦、谦比希矿区，矿石短驳和南下公路受阻。", "high"],
+      ["空间扩散至走廊", "影响沿陆路成本向外扩展，足迹覆盖 New Kapiri Mposhi 及邻近区间。", "high"],
+      ["装运接驳受波及", "车站来货下降，车皮、堆场和东向交班需要调整。", "medium"],
+      ["关联资产联动", "转运仓和补给节点随供应链接驳进入同一情景范围，需分别核实。", "medium"],
+    ]),
+    assets: [
+      { type: "公路", name: "基特韦矿石短驳场", distance: 3.2, risk: "high" },
+      { type: "矿山", name: "谦比希方向矿产品来源", distance: 26, risk: "high" },
+      { type: "铁路", name: "New Kapiri Mposhi 装运节点", distance: 138, risk: "high" },
+    ],
+    responseMeasures: [
+      { category: "公路与来货核实", priority: "immediate", measures: ["核实基特韦至卡皮里姆波希方向的通行条件和待运矿石。", "按实际来货通知 New Kapiri Mposhi 调整装车窗口。"] },
+      { category: "接驳与交班安排", priority: "short-term", measures: ["比较备用集运路线和堆场容量。", "同步更新东向交班及港口接续计划。"] },
+    ],
+  }),
+  // Chalinze is about 52 km north of the eastern approach. halfDistanceKm 65 reaches Dar es Salaam above 0.25.
+  defineEvent({
+    id: "tazara-darport-007", title: "查林泽疏港公路与接驳供电受扰",
+    country: "坦桑尼亚", location: [38.354, -6.638], locationLabel: "查林泽公路枢纽（铁路北侧）",
+    type: "能源价格", severity: "high", popularity: 86, date: "2026-02-11", affectedPopulation: 13600,
+    scale: "corridor", halfDistanceKm: 65,
+    description: "若查林泽公路枢纽通行受阻，并叠加港口装卸与港铁接驳电源收紧，事件发生在坦赞铁路外侧。影响可通过空间扩散和供应链接驳，波及东部进线、达累斯萨拉姆港铁交接及相关资产。",
+    affectedSegment: "达累斯萨拉姆港铁交接及东部进线", serviceImpact: "疏港与交接延后，东部进线接续窗口收紧",
+    conclusion: "事件发生在铁路外侧，影响通过空间扩散和供应链接驳波及坦赞铁路及关联资产。港铁交接延迟需与区间是否损毁分开核实。",
+    impactPath: steps([
+      ["疏港公路受阻", "事件发生在铁路外侧的查林泽枢纽，港口疏港货车通行受阻。", "high"],
+      ["接驳供电收紧", "装卸和港铁交接的电源窗口收紧，交接能力下降。", "high"],
+      ["足迹触及铁路", "影响经空间扩散覆盖东部进线，并到达达累斯萨拉姆终点站。", "high"],
+      ["关联资产暴露", "港口堆场、交接场和沿线补给点随供应链接驳进入同一情景范围。", "medium"],
+    ]),
+    assets: [
+      { type: "公路", name: "查林泽疏港公路枢纽", distance: 1.6, risk: "high" },
+      { type: "能源", name: "港铁交接与装卸电源", distance: 8.4, risk: "high" },
+      { type: "铁路", name: "达累斯萨拉姆港铁交接", distance: 101, risk: "high" },
+    ],
+    responseMeasures: [
+      { category: "公路与电源核实", priority: "immediate", measures: ["核实查林泽枢纽的通行状态和预计恢复时间。", "确认港口装卸与港铁交接电源的可用窗口。"] },
+      { category: "交接与进线安排", priority: "short-term", measures: ["按交接能力调整达累斯萨拉姆到发和堆场预约。", "滚动更新东部进线的接续计划，并区分公路延误与线路限速。"] },
     ],
   }),
 ];
